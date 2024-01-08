@@ -12,6 +12,8 @@ inputs:
   auth_client_secret:
     description: 'The service token client secret'
     required: true
+  virtual_network:
+    description: 'The virtual network to connect to'
 runs:
   using: 'node20'
   main: 'dist/index.js'

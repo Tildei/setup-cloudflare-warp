@@ -30309,6 +30309,7 @@ async function run() {
   const auth_client_secret = core.getInput("auth_client_secret", {
     required: true,
   });
+  const virtual_network = core.getInput("virtual_network");
 
   switch (process.platform) {
     case "linux":
@@ -30329,9 +30330,14 @@ async function run() {
       break;
   }
 
+
+
   await (0,backoff.backOff)(() => checkWARPRegistration(organization, true), {
     numOfAttempts: 20,
   });
+  if (virtual_network) {
+    await exec.exec("warp-cli", ["--accept-tos", "set-virtual-network", virtual_network]);
+  }
   await exec.exec("warp-cli", ["--accept-tos", "connect"]);
   await (0,backoff.backOff)(() => checkWARPConnected(), { numOfAttempts: 20 });
   core.saveState("connected", "true");
