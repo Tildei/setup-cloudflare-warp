@@ -14,6 +14,8 @@ inputs:
     required: true
   virtual_network:
     description: 'The virtual network to connect to'
+  verbose:
+    description: 'Verbose output, set to any truthy value'
 runs:
   using: 'node20'
   main: 'dist/index.js'

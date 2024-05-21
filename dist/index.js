@@ -30181,6 +30181,23 @@ var backoff = __nccwpck_require__(3183);
 
 
 
+async function execWithOutput(args) {
+  let output = "";
+  const options = {};
+  options.listeners = {
+    stdout: (data) => {
+      output += data.toString();
+    },
+  };
+
+  if (core.getInput("verbose", { required: false })) {
+    args.unshift('-vvv')
+  }
+
+  await exec.exec("warp-cli", args, options);
+  return output;
+}
+
 async function installLinuxClient(version) {
   const gpgKeyPath = await tool_cache.downloadTool(
     "https://pkg.cloudflareclient.com/pubkey.gpg",
@@ -30261,16 +30278,9 @@ async function writeMacOSConfiguration(
   );
 }
 
-async function checkWARPRegistration(organization, is_registered) {
-  let output = "";
-  const options = {};
-  options.listeners = {
-    stdout: (data) => {
-      output += data.toString();
-    },
-  };
-
-  await exec.exec("warp-cli", ["--accept-tos", "settings"], options);
+async function checkWARPRegistration(organization) {
+  const is_registered = await registerIfNeeded();
+  const output = await execWithOutput(["--accept-tos", "settings"]);
 
   const registered = output.includes(`Organization: ${organization}`);
   if (is_registered && !registered) {
@@ -30280,16 +30290,19 @@ async function checkWARPRegistration(organization, is_registered) {
   }
 }
 
-async function checkWARPConnected() {
-  let output = "";
-  const options = {};
-  options.listeners = {
-    stdout: (data) => {
-      output += data.toString();
-    },
-  };
+async function registerIfNeeded()  {
+  const output = await execWithOutput(["--accept-tos", "registration", "show"]);
 
-  await exec.exec("warp-cli", ["--accept-tos", "status"], options);
+  if (output.includes("Error: Missing registration")) {
+    const registerOutput = await execWithOutput(["--accept-tos", "registration", "new"]);
+
+    return registerOutput.includes("Success");
+  }
+  return true;
+}
+
+async function checkWARPConnected() {
+  const output = await execWithOutput(["--accept-tos", "status"]);
 
   if (!output.includes("Status update: Connected")) {
     throw new Error("WARP is not connected");
@@ -30332,11 +30345,11 @@ async function run() {
 
 
 
-  await (0,backoff.backOff)(() => checkWARPRegistration(organization, true), {
+  await (0,backoff.backOff)(() => checkWARPRegistration(organization), {
     numOfAttempts: 20,
   });
   if (virtual_network) {
-    await exec.exec("warp-cli", ["--accept-tos", "set-virtual-network", virtual_network]);
+    await exec.exec("warp-cli", ["--accept-tos", "vnet", virtual_network]);
   }
   await exec.exec("warp-cli", ["--accept-tos", "connect"]);
   await (0,backoff.backOff)(() => checkWARPConnected(), { numOfAttempts: 20 });
